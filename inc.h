@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
 
 #if defined(_WIN32)
 #  define strcasecmp _stricmp
@@ -20,3 +23,5 @@
 #endif
 
 #define LISTENQ 128
+
+extern char **environ;

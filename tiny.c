@@ -12,6 +12,15 @@ void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum,
                  char *shortmsg, char *longmsg);
 
+int Fork() {
+    pid_t pid;
+    if((pid = fork()) < 0) {
+        fprintf(stderr, "fork error\n");
+        exit(1);
+    }
+    return pid;
+}
+
 int main(int argc, char **argv) {
     int listenfd, connfd;
     char hostname[MAXLINE], port[MAXLINE];
@@ -191,3 +200,56 @@ char * index(char *dest, const char c) {
     return NULL;
 }
 
+void serve_static(int fd, char *filename, int filesize) {
+    int srcfd;
+    char *srcp, filetype[MAXLINE], buf[MAXLINE];
+
+    // send response headers to client
+    get_filetype(filename, filetype);
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");
+    sprintf(buf, "%sServer: tinyWeb Server\r\n", buf);
+    sprintf(buf, "%sConnection: close\r\n", buf);
+    sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
+    sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
+    rio_writen(fd, buf, strlen(buf));
+    printf("Response headers:\n");
+    printf("%s", buf);
+
+    // send response body to client
+    srcfd = open(filename, O_RDONLY, 0);
+    srcp = mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+    close(srcfd);
+    rio_writen(fd, srcp, filesize);
+    munmap(srcp, filesize);
+}
+
+// 通过 文件名filename 推出 文件类型filetype
+void get_filetype(char *filename, char *filetype) {
+    if(strstr(filename, ".html")) {
+        strcpy(filetype, "text/html");
+    } else if(strstr(filename, ".gif")) {
+        strcpy(filetype, "image/gif");
+    } else if(strstr(filename, ".png")) {
+        strcpy(filetype, "image/png");
+    } else if(strstr(filename, ".jpg")) {
+        strcpy(filetype, "image/jpeg");
+    } else {
+        strcpy(filetype, "text/plain");
+    }
+}
+
+void serve_dynamic(int fd, char *filename, char *cgiargs) {
+    char buf[MAXLINE], *emptylist[] = { NULL };
+
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");
+    rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Server: tinyWeb Server\r\n");
+    rio_writen(fd, buf, strlen(buf));
+
+    if(Fork() == 0) {   // child
+        setenv("QUERY_STRING", cgiargs, 1);
+        dup2(fd, STDOUT_FILENO);    // 将 stdout 重定向到客户端描述符
+        execve(filename, emptylist, environ);   // run CGI program
+    }
+    wait(NULL);
+}
