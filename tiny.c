@@ -1,5 +1,4 @@
 #include "inc.h"
-#include "rio.h"
 
 #define MAXLINE 1024
 
@@ -12,14 +11,6 @@ void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum,
                  char *shortmsg, char *longmsg);
 
-int Fork() {
-    pid_t pid;
-    if((pid = fork()) < 0) {
-        fprintf(stderr, "fork error\n");
-        exit(1);
-    }
-    return pid;
-}
 
 int main(int argc, char **argv) {
     int listenfd, connfd;
